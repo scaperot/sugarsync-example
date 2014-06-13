@@ -54,7 +54,9 @@ public class SampleTool {
     private static final String listCmd = "list";
     private static final String uploadCmd = "upload";
     private static final String downloadCmd = "download";
+    private static final String mediaCmd = "media";
 
+    
     /**
      * Returns the value of the parameter value specified as argument
      * 
@@ -222,6 +224,7 @@ public class SampleTool {
                 "/user/magicBriefcase/text()").get(0);
 
         // make a HTTP GET to the link extracted from user info
+        System.out.println(magicBriefcaseFolderLink);
         HttpResponse folderRepresentationResponse = SugarSyncHTTPGetUtil.getRequest(magicBriefcaseFolderLink,
                 accessToken);
         validateHttpResponse(folderRepresentationResponse);
@@ -294,12 +297,12 @@ public class SampleTool {
                     "/collectionContents/collection[@type=\"folder\"]/displayName/text()");
             List<String> fileNames = XmlUtil.getNodeValues(responseBody,
                     "/collectionContents/file/displayName/text()");
-            System.out.println("\n-Magic Briefcase");
-            System.out.println("\t-Folders:");
+            
+            System.out.println("\nFolders:");
             for (String folder : folderNames) {
                 System.out.println("\t\t" + folder);
             }
-            System.out.println("\t-Files:");
+            System.out.println("\nFiles:");
             for (String file : fileNames) {
                 System.out.println("\t\t" + file);
             }
@@ -334,7 +337,7 @@ public class SampleTool {
         List<String> fileDataLink = XmlUtil.getNodeValues(magicBriefcaseContents.getResponseBody(),
                 "collectionContents/file[displayName=\"" + file + "\"]/fileData/text()");
         if (fileDataLink.size() == 0) {
-            System.out.println("\nFile " + file + " not found in Magic Briefcase folder");
+            System.out.println("\nFile " + file + " not found in folder");
             System.exit(0);
         }
         HttpResponse fileDownloadResponse = FileDownloadAPI.downloadFileData(fileDataLink.get(0), file,
@@ -342,7 +345,7 @@ public class SampleTool {
         validateHttpResponse(fileDownloadResponse);
 
         System.out.println("\nDownload completed successfully. The " + file
-                + " from \"Magic Briefcase\" was downloaded to the local directory.");
+                + " was downloaded to the local directory.");
     }
 
     /**
@@ -385,6 +388,104 @@ public class SampleTool {
 
     }
 
+    /**
+     * Handles "upload" tool command.
+     * 
+     * 1. Get the user information
+     * 
+     * 2. Find the first received shared folder (assuming CapCityCreative)
+     * 
+     * 3. Find the folder with the newest movies in it.  [TODO]
+     * 
+     * 4. Pull down all the files in the folder. [TODO]
+     * 
+     * @param accessToken
+     *            the access token
+     * @param foldername
+     *            the SugarSync folder name in the received shared folder labeled CapCityCreative
+     * @throws XPathExpressionException
+     * @throws IOException
+     */
+    private static void handleMediaFolderCommand(String accessToken,String foldername)
+            throws XPathExpressionException, IOException {
+
+        HttpResponse userInfoResponse = getUserInfo(accessToken);
+        String receivedSharesLink = XmlUtil.getNodeValues(userInfoResponse.getResponseBody(),
+                "/user/receivedShares/text()").get(0);
+
+        // make a HTTP GET to the link extracted from user info
+        //System.out.println(receivedSharesLink);
+        HttpResponse receivedSharesResponse = SugarSyncHTTPGetUtil.getRequest(receivedSharesLink,
+                accessToken);
+        validateHttpResponse(receivedSharesResponse);
+        
+        // get the contents of the first shared folder...big assumption...
+        //System.out.println(folderRepresentationResponse.getResponseBody());
+        String CapCityCreativeLink = XmlUtil.getNodeValues(receivedSharesResponse.getResponseBody(),
+        		"/receivedShares/receivedShare/sharedFolder/text()").get(0);
+        //System.out.println(CapCityCreativeLink);
+        HttpResponse CapCityCreativeResponse = SugarSyncHTTPGetUtil.getRequest(CapCityCreativeLink,
+                accessToken);
+        validateHttpResponse(CapCityCreativeResponse);
+        
+        //get the collection (i.e. folders) within the shared folder
+        //System.out.println(CapCityCreativeResponse.getResponseBody());
+        String CapCityCreativeCollectionsLink = XmlUtil.getNodeValues(CapCityCreativeResponse.getResponseBody(),
+        		"/folder[displayName=\"CapCityCreative\"]/collections/text()").get(0);
+        //System.out.println(CapCityCreativeLink);
+        HttpResponse CapCityCreativeContentsResponse = SugarSyncHTTPGetUtil.getRequest(CapCityCreativeCollectionsLink,
+                accessToken);
+        validateHttpResponse(CapCityCreativeContentsResponse);
+        //System.out.println(CapCityCreativeContentsResponse.getResponseBody());
+
+        //search through the folders to find the one that matches the folder within the collection...
+        List<String> folderLink = XmlUtil.getNodeValues(CapCityCreativeContentsResponse.getResponseBody(),
+                "collectionContents/collection[displayName=\"" + foldername + "\"]/ref/text()");
+        if (folderLink.size() == 0) {
+            System.out.println("\nFolder " + foldername + " not found.");
+            System.exit(0);
+        }
+        HttpResponse folderRefResponse = SugarSyncHTTPGetUtil.getRequest(folderLink.get(0),
+                accessToken);
+        validateHttpResponse(folderRefResponse); 
+        //System.out.println(folderRefResponse.getResponseBody());
+        
+        //get the content of the folder...
+        String folderContentLink = XmlUtil.getNodeValues(folderRefResponse.getResponseBody(),
+        		"/folder/files/text()").get(0);
+        HttpResponse folderContentResponse = SugarSyncHTTPGetUtil.getRequest(folderContentLink,
+                accessToken);
+        validateHttpResponse(folderContentResponse); 
+        //System.out.println(folderContentResponse.getResponseBody());
+
+      //these two lists should be the same size...
+        List<String> mediaFilesLink = XmlUtil.getNodeValues(folderContentResponse.getResponseBody(),
+        		"/collectionContents/file[mediaType=\"video/quicktime\"]/fileData/text()");
+        List<String> fileNames = XmlUtil.getNodeValues(folderContentResponse.getResponseBody(),
+        		"/collectionContents/file[mediaType=\"video/quicktime\"]/displayName/text()");
+        System.out.println("\n" + mediaFilesLink.size() + " files found for download.");
+        if (mediaFilesLink.size() == 0) {
+            System.out.println("\nFolder " + foldername + "/ does not contain any videos.");
+            System.exit(0);
+        }
+        
+        
+        int index = 0;
+        for (String link : mediaFilesLink) {
+        	System.out.println("Begin Download of " + fileNames.get(index));
+
+        	HttpResponse fileDownloadResponse = FileDownloadAPI.downloadFileData(link, "/home/david/awesome/" + fileNames.get(index),
+        			accessToken);
+        	validateHttpResponse(fileDownloadResponse);
+        	index = index + 1;
+        	System.out.println("Done.");
+        }
+        System.out.println("\nDownload completed successfully. The contents of " + foldername
+                + "/ was downloaded to the local directory.");
+        
+    }    
+    
+    
     // ---Print and validation
     /**
      * Validates the input arguments
@@ -500,13 +601,16 @@ public class SampleTool {
                 handleQuotaCommand(accessToken);
             } else if (command.equals(listCmd)) {
                 handleListCommand(accessToken);
-            } else if (command.equals(downloadCmd)) {
+            } else if (command.equals(mediaCmd)) {
+                String folder = argumentList.get(argumentList.size() - 1);
+                handleMediaFolderCommand(accessToken,folder); 
+            }else if (command.equals(downloadCmd)) {
                 String file = argumentList.get(argumentList.size() - 1);
                 handleDownloadCommand(accessToken, file);
             } else if (command.equals(uploadCmd)) {
                 String file = argumentList.get(argumentList.size() - 1);
                 handleUploadCommand(accessToken, file);
-            } else {
+            }  else {
                 System.out.println("Uknown command: " + command);
                 printUsage();
             }
