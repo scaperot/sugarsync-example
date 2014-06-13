@@ -1,4 +1,4 @@
-sugarsync-downloader
+sugarsync-example
 ====================
 
 Sugar Sync SampleTool modification for my purposes...
