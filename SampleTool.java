@@ -406,7 +406,7 @@ public class SampleTool {
      * @throws XPathExpressionException
      * @throws IOException
      */
-    private static void handleMediaFolderCommand(String accessToken,String foldername)
+    private static void handleMediaFolderCommand(String accessToken,String receivedSharedFolder, String foldername)
             throws XPathExpressionException, IOException {
 
         HttpResponse userInfoResponse = getUserInfo(accessToken);
@@ -431,7 +431,7 @@ public class SampleTool {
         //get the collection (i.e. folders) within the shared folder
         //System.out.println(CapCityCreativeResponse.getResponseBody());
         String CapCityCreativeCollectionsLink = XmlUtil.getNodeValues(CapCityCreativeResponse.getResponseBody(),
-        		"/folder[displayName=\"CapCityCreative\"]/collections/text()").get(0);
+        		"/folder[displayName=\"" + receivedSharedFolder + "\"]/collections/text()").get(0);
         //System.out.println(CapCityCreativeLink);
         HttpResponse CapCityCreativeContentsResponse = SugarSyncHTTPGetUtil.getRequest(CapCityCreativeCollectionsLink,
                 accessToken);
@@ -603,7 +603,7 @@ public class SampleTool {
                 handleListCommand(accessToken);
             } else if (command.equals(mediaCmd)) {
                 String folder = argumentList.get(argumentList.size() - 1);
-                handleMediaFolderCommand(accessToken,folder); 
+                handleMediaFolderCommand(accessToken,"CapCityCreative",folder); 
             }else if (command.equals(downloadCmd)) {
                 String file = argumentList.get(argumentList.size() - 1);
                 handleDownloadCommand(accessToken, file);
