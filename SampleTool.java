@@ -6,6 +6,7 @@ import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.List;
 
+import javax.net.ssl.SSLException;
 import javax.xml.transform.TransformerException;
 import javax.xml.xpath.XPathExpressionException;
 
@@ -110,7 +111,7 @@ public class SampleTool {
      *             if any I/O error if thrown
      */
     private static String getRefreshToken(String username, String password, String applicationId, String accessKey,
-            String privateAccessKey) throws IOException {
+            String privateAccessKey) throws IOException, SSLException {
         HttpResponse httpResponse = null;
         httpResponse = RefreshToken.getAuthorizationResponse(username, password,applicationId, accessKey, privateAccessKey);
 
@@ -118,7 +119,7 @@ public class SampleTool {
             System.out.println("Error while getting refresh token!");
             printResponse(httpResponse);
             System.exit(0);
-        }
+        } 
 
         return httpResponse.getHeader("Location").getValue();
     }
