@@ -54,7 +54,6 @@ public class SampleTool {
     private static final String listCmd = "list";
     private static final String uploadCmd = "upload";
     private static final String downloadCmd = "download";
-    private static final String mediaCmd = "media";
 
     
     /**
@@ -170,7 +169,7 @@ public class SampleTool {
     /**
      * Returns the "Magic Briefcase" SugarSync default folder contents
      * 
-     * 1.Get the "Magic Briefcase" folder representation
+     * 1.Get the receive shared folder representation
      * 
      * 2.Extract the folder contents link from the folder representation: parse
      * the xml file and retrieve the <contents> node value
@@ -184,9 +183,9 @@ public class SampleTool {
      * @throws IOException
      *             if any I/O error occurs
      */
-    private static HttpResponse getMagicBriefcaseFolderContents(String accessToken)
+    /*private static HttpResponse getFolderContents(String accessToken, String folder)
             throws IOException, XPathExpressionException {
-        HttpResponse folderRepresentationResponse = getMagicBriefcaseFolderRepresentation(accessToken);
+        HttpResponse folderRepresentationResponse = getFolderRepresentation(accessToken, String folder);
         validateHttpResponse(folderRepresentationResponse);
 
         String magicBriefcaseFolderContentsLink = XmlUtil.getNodeValues(
@@ -196,7 +195,7 @@ public class SampleTool {
         validateHttpResponse(folderContentsResponse);
 
         return folderContentsResponse;
-    }
+    }*/
 
     /**
      * Returns the "Magic Briefcase" SugarSync default folder representation.
@@ -215,7 +214,7 @@ public class SampleTool {
      * @throws IOException
      *             if any I/O error occurs
      */
-    private static HttpResponse getMagicBriefcaseFolderRepresentation(String accessToken)
+    /*private static HttpResponse getMagicBriefcaseFolderRepresentation(String accessToken)
             throws IOException, XPathExpressionException {
         HttpResponse userInfoResponse = getUserInfo(accessToken);
 
@@ -230,7 +229,7 @@ public class SampleTool {
         validateHttpResponse(folderRepresentationResponse);
 
         return folderRepresentationResponse;
-    }
+    }*/
 
     // --- End SugarSync API calls
 
@@ -269,7 +268,7 @@ public class SampleTool {
 
     /**
      * Handles "list" tool command. Makes a HTTP GET request to the
-     * "Magic Briefcase" contents link and displays the file and folder names
+     * received shared folder contents link and displays the file and folder names
      * within the folder
      * 
      * @param accessToken
@@ -280,9 +279,13 @@ public class SampleTool {
      */
     private static void handleListCommand(String accessToken) throws IOException,
             XPathExpressionException, TransformerException {
-        HttpResponse folderContentsResponse = getMagicBriefcaseFolderContents(accessToken);
+    	
+    	String receivedSharedFolder = "CapCityCreative";
+    	
+        HttpResponse folderContentsResponse = getSharedFolderContentsRepresentation(accessToken, receivedSharedFolder );
 
         printFolderContents(folderContentsResponse.getResponseBody());
+        
     }
 
     /**
@@ -312,42 +315,7 @@ public class SampleTool {
         }
     }
 
-    /**
-     * Handles "download" command.
-     * 
-     * 1. Get the "Magic Briefcase" contents
-     * 
-     * 2. Check if the specified file exists in the "Magic Briefcase" folder and
-     * retrieve its file data link
-     * 
-     * 3. Make a HTTP GET request to the previous extracted link and save the
-     * response content to a local file
-     * 
-     * @param accessToken
-     *            the access token
-     * @param file
-     *            the remote file within the "Magic Briefcase" folder
-     * @throws IOException
-     * @throws XPathExpressionException
-     */
-    private static void handleDownloadCommand(String accessToken, String file) throws IOException,
-            XPathExpressionException {
-        HttpResponse magicBriefcaseContents = getMagicBriefcaseFolderContents(accessToken);
-
-        List<String> fileDataLink = XmlUtil.getNodeValues(magicBriefcaseContents.getResponseBody(),
-                "collectionContents/file[displayName=\"" + file + "\"]/fileData/text()");
-        if (fileDataLink.size() == 0) {
-            System.out.println("\nFile " + file + " not found in folder");
-            System.exit(0);
-        }
-        HttpResponse fileDownloadResponse = FileDownloadAPI.downloadFileData(fileDataLink.get(0), file,
-                accessToken);
-        validateHttpResponse(fileDownloadResponse);
-
-        System.out.println("\nDownload completed successfully. The " + file
-                + " was downloaded to the local directory.");
-    }
-
+ 
     /**
      * Handles "upload" tool command.
      * 
@@ -389,13 +357,105 @@ public class SampleTool {
     }
 
     /**
-     * Handles "upload" tool command.
+     * getFolderContentsRepresentation
+     * 
+     * Description: Fetch the folder contents representation of a specific folder in Sugar Sync
+     * 
+     * @param folderRepresentation
+     *            folder representation provided from GET command
+     * @param foldername
+     *            the SugarSync folder name 
+     * @throws XPathExpressionException
+     * @throws IOException
+     */
+    private static HttpResponse getFolderContentsRepresentation(String accessToken, HttpResponse folderRepresentation,String foldername)
+            throws XPathExpressionException, IOException {
+    	
+    	//System.out.println(sharedFolderContentsResponse.getResponseBody());
+
+        //search through the folders to find the one that matches the folder within the collection...
+        List<String> folderLink = XmlUtil.getNodeValues(folderRepresentation.getResponseBody(),
+                "collectionContents/collection[displayName=\"" + foldername + "\"]/ref/text()");
+        if (folderLink.size() == 0) {
+            System.out.println("\nFolder " + foldername + " not found.");
+            System.exit(0);
+        } else if (folderLink.size() > 1) {
+            System.out.println("\n" + folderLink.size() + " folders found with the name " + foldername + ".  Exiting.");
+            System.exit(0);
+        } else {
+            System.out.println("\n" + foldername + " found.");
+        }
+       
+        HttpResponse folderRefResponse = SugarSyncHTTPGetUtil.getRequest(folderLink.get(0),
+                accessToken);
+        validateHttpResponse(folderRefResponse); 
+        //System.out.println(folderRefResponse.getResponseBody());
+        
+        //get the content of the folder...
+        String folderContentsLink = XmlUtil.getNodeValues(folderRefResponse.getResponseBody(),
+        		"/folder/files/text()").get(0);
+        HttpResponse folderContentsResponse = SugarSyncHTTPGetUtil.getRequest(folderContentsLink,
+                accessToken);
+        validateHttpResponse(folderContentsResponse); 
+        //System.out.println(folderContentsResponse.getResponseBody());
+        
+        return folderContentsResponse;
+    }
+    
+    /**
+     * getSharedFolderContentsRepresentation
+     * 
+     * Description: Fetch the representation of a specific shared folder
+     * 
+     * @param accessToken
+     *            the access token
+     * @param foldername
+     *            the SugarSync shared folder name 
+     * @throws XPathExpressionException
+     * @throws IOException
+     */
+    private static HttpResponse getSharedFolderContentsRepresentation(String accessToken,String receivedSharedFolder)
+            throws XPathExpressionException, IOException {
+    	
+    	HttpResponse userInfoResponse = getUserInfo(accessToken);
+        String receivedSharesLink = XmlUtil.getNodeValues(userInfoResponse.getResponseBody(),
+                "/user/receivedShares/text()").get(0);
+
+        // make a HTTP GET to the link extracted from user info
+        HttpResponse receivedSharesResponse = SugarSyncHTTPGetUtil.getRequest(receivedSharesLink,
+                accessToken);
+        validateHttpResponse(receivedSharesResponse);
+        
+        // get the contents of a specific shared folder
+        String sharedFolderLink = XmlUtil.getNodeValues(receivedSharesResponse.getResponseBody(),
+        		"/receivedShares/receivedShare[displayName=\"" + receivedSharedFolder + "\"]/sharedFolder/text()").get(0);
+        HttpResponse sharedFolderResponse = SugarSyncHTTPGetUtil.getRequest(sharedFolderLink,
+                accessToken);
+        validateHttpResponse(sharedFolderResponse);
+        
+    	//get the collection (i.e. folders) within the shared folder
+    	//System.out.println(sharedFolderResponse.getResponseBody());
+    	String sharedFolderContentsLink = XmlUtil.getNodeValues(sharedFolderResponse.getResponseBody(),
+    			"/folder/collections/text()").get(0);
+    	//System.out.println(folderContentsLink);
+    	HttpResponse sharedFolderContentsResponse = SugarSyncHTTPGetUtil.getRequest(sharedFolderContentsLink,
+    			accessToken);
+    	validateHttpResponse(sharedFolderContentsResponse);
+        
+        return sharedFolderContentsResponse;
+    	
+    }
+    
+    /**
+     * handleDownloadCommand
+     * 
+     * Description: Handles "download" tool command.
      * 
      * 1. Get the user information
      * 
      * 2. Find the first received shared folder (assuming CapCityCreative)
      * 
-     * 3. Find the folder with the newest movies in it.  [TODO]
+     * 3. Find a folder within it.  [TODO]
      * 
      * 4. Pull down all the files in the folder. [TODO]
      * 
@@ -406,62 +466,23 @@ public class SampleTool {
      * @throws XPathExpressionException
      * @throws IOException
      */
-    private static void handleMediaFolderCommand(String accessToken,String receivedSharedFolder, String foldername)
+    private static void handleDownloadCommand(String accessToken,String foldername)
             throws XPathExpressionException, IOException {
 
-        HttpResponse userInfoResponse = getUserInfo(accessToken);
-        String receivedSharesLink = XmlUtil.getNodeValues(userInfoResponse.getResponseBody(),
-                "/user/receivedShares/text()").get(0);
-
-        // make a HTTP GET to the link extracted from user info
-        //System.out.println(receivedSharesLink);
-        HttpResponse receivedSharesResponse = SugarSyncHTTPGetUtil.getRequest(receivedSharesLink,
-                accessToken);
-        validateHttpResponse(receivedSharesResponse);
+    	String receivedSharedFolder = "CapCityCreative";
+    	
+    	// look for the received shared folder...return the contents of the folder in xml
+    	HttpResponse sharedFolderContentsResponse = getSharedFolderContentsRepresentation(accessToken, receivedSharedFolder);
         
-        // get the contents of the first shared folder...big assumption...
-        //System.out.println(folderRepresentationResponse.getResponseBody());
-        String CapCityCreativeLink = XmlUtil.getNodeValues(receivedSharesResponse.getResponseBody(),
-        		"/receivedShares/receivedShare/sharedFolder/text()").get(0);
-        //System.out.println(CapCityCreativeLink);
-        HttpResponse CapCityCreativeResponse = SugarSyncHTTPGetUtil.getRequest(CapCityCreativeLink,
-                accessToken);
-        validateHttpResponse(CapCityCreativeResponse);
-        
-        //get the collection (i.e. folders) within the shared folder
-        //System.out.println(CapCityCreativeResponse.getResponseBody());
-        String CapCityCreativeCollectionsLink = XmlUtil.getNodeValues(CapCityCreativeResponse.getResponseBody(),
-        		"/folder[displayName=\"" + receivedSharedFolder + "\"]/collections/text()").get(0);
-        //System.out.println(CapCityCreativeLink);
-        HttpResponse CapCityCreativeContentsResponse = SugarSyncHTTPGetUtil.getRequest(CapCityCreativeCollectionsLink,
-                accessToken);
-        validateHttpResponse(CapCityCreativeContentsResponse);
-        //System.out.println(CapCityCreativeContentsResponse.getResponseBody());
+    	//look for a folder within a folder...return the contents of the found folder.
+    	HttpResponse folderContentsResponse = getFolderContentsRepresentation(accessToken, sharedFolderContentsResponse, foldername);
+    	
+    	
 
-        //search through the folders to find the one that matches the folder within the collection...
-        List<String> folderLink = XmlUtil.getNodeValues(CapCityCreativeContentsResponse.getResponseBody(),
-                "collectionContents/collection[displayName=\"" + foldername + "\"]/ref/text()");
-        if (folderLink.size() == 0) {
-            System.out.println("\nFolder " + foldername + " not found.");
-            System.exit(0);
-        }
-        HttpResponse folderRefResponse = SugarSyncHTTPGetUtil.getRequest(folderLink.get(0),
-                accessToken);
-        validateHttpResponse(folderRefResponse); 
-        //System.out.println(folderRefResponse.getResponseBody());
-        
-        //get the content of the folder...
-        String folderContentLink = XmlUtil.getNodeValues(folderRefResponse.getResponseBody(),
-        		"/folder/files/text()").get(0);
-        HttpResponse folderContentResponse = SugarSyncHTTPGetUtil.getRequest(folderContentLink,
-                accessToken);
-        validateHttpResponse(folderContentResponse); 
-        //System.out.println(folderContentResponse.getResponseBody());
-
-      //these two lists should be the same size...
-        List<String> mediaFilesLink = XmlUtil.getNodeValues(folderContentResponse.getResponseBody(),
+      //fetch the location of the data and the names of the files for downloading purposes...
+        List<String> mediaFilesLink = XmlUtil.getNodeValues(folderContentsResponse.getResponseBody(),
         		"/collectionContents/file[mediaType=\"video/quicktime\"]/fileData/text()");
-        List<String> fileNames = XmlUtil.getNodeValues(folderContentResponse.getResponseBody(),
+        List<String> fileNames = XmlUtil.getNodeValues(folderContentsResponse.getResponseBody(),
         		"/collectionContents/file[mediaType=\"video/quicktime\"]/displayName/text()");
         System.out.println("\n" + mediaFilesLink.size() + " files found for download.");
         if (mediaFilesLink.size() == 0) {
@@ -474,7 +495,7 @@ public class SampleTool {
         for (String link : mediaFilesLink) {
         	System.out.println("Begin Download of " + fileNames.get(index));
 
-        	HttpResponse fileDownloadResponse = FileDownloadAPI.downloadFileData(link, "/home/david/awesome/" + fileNames.get(index),
+        	HttpResponse fileDownloadResponse = FileDownloadAPI.downloadFileData(link, fileNames.get(index),
         			accessToken);
         	validateHttpResponse(fileDownloadResponse);
         	index = index + 1;
@@ -482,7 +503,7 @@ public class SampleTool {
         }
         System.out.println("\nDownload completed successfully. The contents of " + foldername
                 + "/ was downloaded to the local directory.");
-        
+        System.exit(mediaFilesLink.size());
     }    
     
     
@@ -601,12 +622,9 @@ public class SampleTool {
                 handleQuotaCommand(accessToken);
             } else if (command.equals(listCmd)) {
                 handleListCommand(accessToken);
-            } else if (command.equals(mediaCmd)) {
+            } else if (command.equals(downloadCmd)) {
                 String folder = argumentList.get(argumentList.size() - 1);
-                handleMediaFolderCommand(accessToken,"CapCityCreative",folder); 
-            }else if (command.equals(downloadCmd)) {
-                String file = argumentList.get(argumentList.size() - 1);
-                handleDownloadCommand(accessToken, file);
+                handleDownloadCommand(accessToken,folder); 
             } else if (command.equals(uploadCmd)) {
                 String file = argumentList.get(argumentList.size() - 1);
                 handleUploadCommand(accessToken, file);
