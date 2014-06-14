@@ -1,16 +1,16 @@
 sugarsync-example
 ====================
 
-Sugar Sync SampleTool modification for my purposes...
+Sugar Sync SampleTool modification to access received shared folder (or for the layman Shared Folders)
 
-I wanted to extend the existing tool to troll through receivedShared folders and then paruse them for a specific folder name (added the input argument 'media' to for a folder type.  This basically still has all the same code as the example on sugarsync.com.
+I wanted to extend the existing sample tool (found at sugarsync.com/developer) to interact with SugarSync Shared Folders instead of the MagicBriefcase because...well...I don't use the MagicBriefcase.
 
 Installation: 
-You should be able to just replace the default one with SampleTool.java from this repo and be good to go.  
+If you go to the developer resources at sugarsync.com/developer under Examples download sugarsync-api-sample.zip.  If you follow all the instructions on the webpage for installation with the addition that you replace SampleTool.java from this repo with the default one provided.  The pom.xml and everything should work for creating binaries, etc.
 
-Dependencies:
+Usage:
+The usage is the same as the instructions on sugarsync.com/developer however at the moment the shared folder is hardcoded into the java classes (working on changing that).
 
 TODO: 
-argument should be changed from 'media' to 'mediaFolder'
-strip out the MagicBriefcase stuff (optional)
-instead of one big method, break up the get commands a little...if possible.
+strip out the MagicBriefcase from Upload feature
+add a required argument to specify the received shared folder.
