@@ -85,7 +85,7 @@ public class SampleTool {
      */
     private static String getCommand(List<String> argumentList) {
         String cmd = argumentList.get(argumentList.size() - 1);
-        if (Arrays.asList(quotaCmd, listCmd).contains(cmd)) {
+        if (Arrays.asList(quotaCmd).contains(cmd)) {
             return cmd;
         } else
             return argumentList.get(argumentList.size() - 2);
@@ -269,22 +269,28 @@ public class SampleTool {
 
     /**
      * Handles "list" tool command. Makes a HTTP GET request to the
-     * received shared folder contents link and displays the file and folder names
+     * received shared folder and displays contents of the directory 
      * within the folder
      * 
      * @param accessToken
      *            the access token
+     * @param foldername 
+     * 			  name of the folder to list
      * @throws IOException
      * @throws XPathExpressionException
      * @throws TransformerException
      */
-    private static void handleListCommand(String accessToken) throws IOException,
+    private static void handleListCommand(String accessToken, String foldername) throws IOException,
             XPathExpressionException, TransformerException {
     	
     	String receivedSharedFolder = "CapCityCreative";
     	
-        HttpResponse folderContentsResponse = getSharedFolderContentsRepresentation(accessToken, receivedSharedFolder );
+        HttpResponse sharedFolderContentsResponse = getSharedFolderContentsRepresentation(accessToken, receivedSharedFolder );
 
+    	//look for a folder within a folder...return the contents of the found folder.
+    	HttpResponse folderContentsResponse = getFolderContentsRepresentation(accessToken, sharedFolderContentsResponse, foldername);
+
+        
         printFolderContents(folderContentsResponse.getResponseBody());
         
     }
@@ -297,18 +303,18 @@ public class SampleTool {
      */
     private static void printFolderContents(String responseBody) {
         try {
-            List<String> folderNames = XmlUtil.getNodeValues(responseBody,
-                    "/collectionContents/collection[@type=\"folder\"]/displayName/text()");
+        	//Maybe add this back in later...
+            //List<String> folderNames = XmlUtil.getNodeValues(responseBody,
+            //        "/collectionContents/collection[@type=\"folder\"]/displayName/text()");
             List<String> fileNames = XmlUtil.getNodeValues(responseBody,
                     "/collectionContents/file/displayName/text()");
             
-            System.out.println("\nFolders:");
-            for (String folder : folderNames) {
-                System.out.println("\t\t" + folder);
-            }
-            System.out.println("\nFiles:");
+            //for (String folder : folderNames) {
+            //    System.out.println("\t" + folder);
+            //}
+            
             for (String file : fileNames) {
-                System.out.println("\t\t" + file);
+                System.out.println(file);
             }
         } catch (XPathExpressionException e1) {
             System.out.println("Error while printing the folder contents:");
@@ -383,9 +389,7 @@ public class SampleTool {
         } else if (folderLink.size() > 1) {
             System.out.println("\n" + folderLink.size() + " folders found with the name " + foldername + ".  Exiting.");
             System.exit(0);
-        } else {
-            System.out.println("\n" + foldername + " found.");
-        }
+        } 
        
         HttpResponse folderRefResponse = SugarSyncHTTPGetUtil.getRequest(folderLink.get(0),
                 accessToken);
@@ -622,7 +626,8 @@ public class SampleTool {
             if (command.equals(quotaCmd)) {
                 handleQuotaCommand(accessToken);
             } else if (command.equals(listCmd)) {
-                handleListCommand(accessToken);
+                String folder = argumentList.get(argumentList.size() - 1);
+                handleListCommand(accessToken, folder);
             } else if (command.equals(downloadCmd)) {
                 String folder = argumentList.get(argumentList.size() - 1);
                 handleDownloadCommand(accessToken,folder); 
